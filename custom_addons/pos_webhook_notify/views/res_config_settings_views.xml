@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="res_config_settings_view_form_pos_webhook" model="ir.ui.view">
+    <field name="name">res.config.settings.view.form.pos.webhook</field>
+    <field name="model">res.config.settings</field>
+    <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form" position="inside">
+        <app string="POS Webhook" name="pos_webhook_notify">
+          
+          <!-- ========================================== -->
+          <!-- ENABLE/DISABLE TOGGLES -->
+          <!-- ========================================== -->
+          <block title="Module Control">
+            <setting id="pos_webhook_enable_toggles" 
+                     help="Enable or disable POS and Sales notifications independently">
+              <div class="content-group">
+                <div class="alert alert-info mb16">
+                  🎛️ <strong>Module Controls:</strong> Toggle these switches to enable/disable 
+                  WhatsApp notifications for POS receipts and Sales invoices independently.
+                </div>
+                
+                <div class="row mt16">
+                  <label for="pos_webhook_enable_pos" 
+                         string="POS Receipt Notifications" 
+                         class="col-lg-4 o_light_label"/>
+                  <field name="pos_webhook_enable_pos" widget="boolean_toggle"/>
+                  <div class="text-muted col-lg-12 ml32 mt4">
+                    ✅ When enabled: Customers receive POS receipt PDFs via WhatsApp after payment
+                  </div>
+                </div>
+                
+                <div class="row mt16">
+                  <label for="pos_webhook_enable_sales" 
+                         string="Sales Invoice Notifications" 
+                         class="col-lg-4 o_light_label"/>
+                  <field name="pos_webhook_enable_sales" widget="boolean_toggle"/>
+                  <div class="text-muted col-lg-12 ml32 mt4">
+                    ✅ When enabled: Customers receive sales invoice PDFs via WhatsApp.
+                  </div>
+                </div>
+              </div>
+            </setting>
+          </block>
+          
+          <!-- ========================================== -->
+          <!-- WHATSAPP SETTINGS -->
+          <!-- ========================================== -->
+          <block title="WhatsApp Invoice Notification">
+            <setting id="pos_webhook_whatsapp_settings" 
+                     help="Send invoice PDFs to customers via WhatsApp using templates">
+              <div class="content-group">
+                <div class="text-muted mb8">
+                  📱 Customers will receive invoice PDFs via WhatsApp after each sale
+                </div>
+                
+                <div class="row mt16">
+                  <label for="pos_webhook_whatsapp_url" 
+                         string="WhatsApp API URL" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_whatsapp_url" 
+                         placeholder="https://dashboard.chatberry.net/api/send/template"/>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_whatsapp_auth" 
+                         string="API Authorization Token" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_whatsapp_auth" 
+                         password="True" 
+                         placeholder="Bearer YOUR_CHATBERRY_TOKEN"/>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_template_name" 
+                         string="Template Name" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_template_name" 
+                         placeholder="payment_confirmation_2"/>
+                  <div class="text-muted col-lg-9">
+                    The name of your approved WhatsApp template
+                  </div>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_language_code" 
+                         string="Language Code" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_language_code" 
+                         placeholder="en"/>
+                  <div class="text-muted col-lg-9">
+                    Language code for your template (e.g., 'en', 'en_US')
+                  </div>
+                </div>
+              </div>
+            </setting>
+          </block>
+          
+          <!-- ========================================== -->
+          <!-- CLOUDINARY CONFIGURATION -->
+          <!-- ========================================== -->
+          <block title="Cloudinary Configuration (Required for WhatsApp)">
+            <setting id="pos_webhook_cloudinary_settings" 
+                     help="Cloudinary is used to host PDF files for WhatsApp">
+              <div class="content-group">
+                <div class="alert alert-info mb8">
+                  ☁️ <strong>Why Cloudinary?</strong> WhatsApp requires publicly accessible URLs for documents. 
+                  Cloudinary provides reliable, fast hosting for your invoice PDFs.
+                </div>
+                
+                <div class="row mt16">
+                  <label for="pos_webhook_cloudinary_cloud_name" 
+                         string="Cloud Name" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_cloudinary_cloud_name" 
+                         placeholder="your-cloud-name"/>
+                  <div class="text-muted col-lg-9">
+                    Found in your Cloudinary dashboard
+                  </div>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_cloudinary_api_key" 
+                         string="API Key" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_cloudinary_api_key" 
+                         placeholder="123456789012345"/>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_cloudinary_api_secret" 
+                         string="API Secret" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_cloudinary_api_secret" 
+                         password="True" 
+                         placeholder="abcdefghijklmnopqrstuvwxyz"/>
+                  <div class="text-muted col-lg-9">
+                    ⚠️ Keep this secret! Never share it publicly.
+                  </div>
+                </div>
+              </div>
+            </setting>
+          </block>
+          
+          <!-- ========================================== -->
+          <!-- OPTIONAL JSON WEBHOOK -->
+          <!-- ========================================== -->
+          <block title="Advanced: JSON Webhook (Optional)">
+            <setting id="pos_webhook_settings" 
+                     help="Optional: Send order data to a webhook endpoint">
+              <div class="content-group">
+                <div class="text-muted mb8">
+                  Leave empty if you only want WhatsApp messages
+                </div>
+                <div class="row mt16">
+                  <label for="pos_webhook_url" class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_url" 
+                         placeholder="https://your-webhook.example.com/pos"/>
+                </div>
+                <div class="row">
+                  <label for="pos_webhook_auth" class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_auth" 
+                         password="True" 
+                         placeholder="Bearer xxx (optional)"/>
+                </div>
+              </div>
+            </setting>
+          </block>
+        </app>
+        
+      </xpath>
+    </field>
+  </record>
+</odoo>

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Custom POS Receipt Report -->
+    <report 
+        id="report_pos_receipt_custom"
+        string="POS Receipt"
+        model="pos.order" 
+        report_type="qweb-pdf"
+        name="pos_webhook_notify.pos_receipt_document"
+        file="pos_webhook_notify.pos_receipt_document"
+    />
+
+    <!-- Main Receipt Template -->
+    <template id="pos_receipt_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <style>
+                            .pos-receipt-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 20px;
+                            }
+                            .pos-receipt-table th {
+                                text-align: left;
+                                padding: 8px;
+                                border-bottom: 1px solid #000;
+                                font-weight: bold;
+                            }
+                            .pos-receipt-table td {
+                                padding: 8px;
+                                border-bottom: 1px solid #ddd;
+                            }
+                            .summary-section {
+                                float: right;
+                                width: 300px;
+                                margin-top: 20px;
+                            }
+                            .summary-line {
+                                display: flex;
+                                justify-content: space-between;
+                                padding: 5px 0;
+                            }
+                            .summary-line.total {
+                                border-top: 1px solid #000;
+                                border-bottom: 3px double #000;
+                                font-weight: bold;
+                                padding: 10px 0;
+                            }
+                            .customer-name {
+                                text-align: right;
+                                font-size: 16px;
+                                margin-bottom: 20px;
+                            }
+                            .invoice-title {
+                                font-size: 24px;
+                                font-weight: bold;
+                                margin-bottom: 20px;
+                            }
+                            .invoice-details {
+                                display: grid;
+                                grid-template-columns: 1fr 1fr 1fr 1fr;
+                                gap: 20px;
+                                margin-bottom: 20px;
+                            }
+                            .detail-block {
+                                margin-bottom: 5px;
+                            }
+                            .detail-label {
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                            }
+                            .payment-note {
+                                margin-top: 30px;
+                                padding: 10px;
+                                background-color: #f5f5f5;
+                            }
+                        </style>
+
+                        <!-- Customer Name (Right Aligned) -->
+                        <div class="customer-name">
+                            <t t-esc="o.partner_id.name or 'Customer'"/>
+                        </div>
+
+                        <!-- Invoice Title -->
+                        <div class="invoice-title">
+                            Invoice <t t-esc="o.name"/>
+                        </div>
+
+                        <!-- Invoice Details Grid -->
+                        <div class="invoice-details">
+                            <div class="detail-block">
+                                <div class="detail-label">Invoice Date</div>
+                                <div><t t-esc="o.date_order.strftime('%m/%d/%Y')"/></div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-label">Due Date</div>
+                                <div><t t-esc="o.date_order.strftime('%m/%d/%Y')"/></div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-label">Source</div>
+                                <div><t t-esc="o.name"/></div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-label">Reference</div>
+                                <div><t t-esc="o.pos_reference or o.name"/></div>
+                            </div>
+                        </div>
+
+                        <!-- Product Table -->
+                        <table class="pos-receipt-table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th style="text-align: right;">Quantity</th>
+                                    <th style="text-align: right;">Unit Price</th>
+                                    <th style="text-align: right;">Taxes</th>
+                                    <th style="text-align: right;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="o.lines" t-as="line">
+                                    <tr>
+                                        <td><t t-esc="line.product_id.name"/></td>
+                                        <td style="text-align: right;"><t t-esc="'%.2f' % line.qty"/></td>
+                                        <td style="text-align: right;">
+                                            <t t-esc="'%.2f' % line.price_unit"/>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <t t-if="line.tax_ids">
+                                                <t t-foreach="line.tax_ids" t-as="tax">
+                                                    <t t-esc="'%.0f%%' % tax.amount"/>
+                                                </t>
+                                            </t>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            $ <t t-esc="'%.2f' % line.price_subtotal"/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Payment Communication -->
+                        <div class="payment-note">
+                            Payment Communication: <strong><t t-esc="o.name"/></strong>
+                        </div>
+
+                        <!-- Summary Section (Right Side) -->
+                        <div class="summary-section">
+                            <div class="summary-line">
+                                <span>Untaxed Amount</span>
+                                <span>$ <t t-esc="'%.2f' % (o.amount_total - o.amount_tax)"/></span>
+                            </div>
+                            <div class="summary-line">
+                                <span>Tax 15%</span>
+                                <span>$ <t t-esc="'%.2f' % o.amount_tax"/></span>
+                            </div>
+                            <div class="summary-line total">
+                                <span>Total</span>
+                                <span>$ <t t-esc="'%.2f' % o.amount_total"/></span>
+                            </div>
+                            <div class="summary-line">
+                                <span>
+                                    Paid on <t t-esc="o.date_order.strftime('%m/%d/%Y')"/> using 
+                                    <t t-if="o.payment_ids">
+                                        <t t-esc="o.payment_ids[0].payment_method_id.name"/>
+                                    </t>
+                                    <t t-else="">Cash</t>
+                                </span>
+                                <span>$ <t t-esc="'%.2f' % o.amount_paid"/></span>
+                            </div>
+                            <div class="summary-line">
+                                <span>Amount Due</span>
+                                <span>$ 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="clear: both; margin-top: 100px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px;">
+                            Page 1 / 1
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

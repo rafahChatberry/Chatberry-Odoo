@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: odoo
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    command: postgres -c logging_collector=off
+
+  odoo:
+    build: .  # Build from Dockerfile to include cloudinary
+    depends_on:
+      - db
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo
+    volumes:
+      - ./custom_addons:/mnt/extra-addons:cached
+      - odoo-data:/var/lib/odoo
+    restart: always
+
+volumes:
+  db-data:
+  odoo-data:

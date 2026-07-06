@@ -1,0 +1,6 @@
+<odoo noupdate="1">
+  <record id="pos_webhook_default_url" model="ir.config_parameter">
+    <field name="key">pos_webhook_notify.url</field>
+    <field name="value"></field>
+  </record>
+</odoo>
