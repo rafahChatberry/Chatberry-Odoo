@@ -39,6 +39,16 @@
                     ✅ When enabled: Customers receive sales invoice PDFs via WhatsApp.
                   </div>
                 </div>
+                
+                <div class="row mt16">
+                  <label for="pos_webhook_enable_crm" 
+                         string="CRM Stage Automation" 
+                         class="col-lg-4 o_light_label"/>
+                  <field name="pos_webhook_enable_crm" widget="boolean_toggle"/>
+                  <div class="text-muted col-lg-12 ml32 mt4">
+                    When enabled: CRM stage changes queue WhatsApp template messages.
+                  </div>
+                </div>
               </div>
             </setting>
           </block>
@@ -137,6 +147,37 @@
                   <div class="text-muted col-lg-9">
                     ⚠️ Keep this secret! Never share it publicly.
                   </div>
+                </div>
+              </div>
+            </setting>
+          </block>
+          
+          <!-- ========================================== -->
+          <!-- CRM AUTOMATION SETTINGS -->
+          <!-- ========================================== -->
+          <block title="CRM WhatsApp Automation">
+            <setting id="pos_webhook_crm_automation_settings" 
+                     help="Queue and retry behavior for CRM stage WhatsApp automations">
+              <div class="content-group">
+                <div class="row mt16">
+                  <label for="pos_webhook_crm_queue_batch_size" 
+                         string="Queue Batch Size" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_crm_queue_batch_size"/>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_crm_max_retries" 
+                         string="Max Retries" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_crm_max_retries"/>
+                </div>
+                
+                <div class="row">
+                  <label for="pos_webhook_crm_retry_delay_minutes" 
+                         string="Retry Delay (Minutes)" 
+                         class="col-lg-3 o_light_label"/>
+                  <field name="pos_webhook_crm_retry_delay_minutes"/>
                 </div>
               </div>
             </setting>

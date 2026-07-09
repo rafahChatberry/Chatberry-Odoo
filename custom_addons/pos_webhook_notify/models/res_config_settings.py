@@ -14,6 +14,10 @@ class ResConfigSettings(models.TransientModel):
         string="Enable Sales Invoice Notifications",
         help="Enable/disable WhatsApp notifications for Sales invoices"
     )
+    pos_webhook_enable_crm = fields.Boolean(
+        string="Enable CRM WhatsApp Automation",
+        help="Enable/disable WhatsApp notifications when CRM stages change"
+    )
 
     # ========================================
     # OPTIONAL JSON WEBHOOK
@@ -79,6 +83,25 @@ class ResConfigSettings(models.TransientModel):
     )
 
     # ========================================
+    # CRM QUEUE CONFIGURATION
+    # ========================================
+    pos_webhook_crm_queue_batch_size = fields.Integer(
+        string="CRM Queue Batch Size",
+        default=20,
+        config_parameter="pos_webhook_notify.crm_queue_batch_size"
+    )
+    pos_webhook_crm_max_retries = fields.Integer(
+        string="CRM Max Retries",
+        default=3,
+        config_parameter="pos_webhook_notify.crm_max_retries"
+    )
+    pos_webhook_crm_retry_delay_minutes = fields.Integer(
+        string="CRM Retry Delay (Minutes)",
+        default=15,
+        config_parameter="pos_webhook_notify.crm_retry_delay_minutes"
+    )
+
+    # ========================================
     # GETTER METHODS FOR BOOLEAN FIELDS
     # ========================================
     @api.model
@@ -89,10 +112,12 @@ class ResConfigSettings(models.TransientModel):
         # Get boolean values properly
         pos_enabled = IrConfigParameter.get_param('pos_webhook_notify.enable_pos', 'True')
         sales_enabled = IrConfigParameter.get_param('pos_webhook_notify.enable_sales', 'True')
+        crm_enabled = IrConfigParameter.get_param('pos_webhook_notify.enable_crm', 'True')
         
         res.update(
             pos_webhook_enable_pos=(pos_enabled == 'True'),
             pos_webhook_enable_sales=(sales_enabled == 'True'),
+            pos_webhook_enable_crm=(crm_enabled == 'True'),
         )
         return res
 
@@ -108,3 +133,5 @@ class ResConfigSettings(models.TransientModel):
                                      'True' if self.pos_webhook_enable_pos else 'False')
         IrConfigParameter.set_param('pos_webhook_notify.enable_sales', 
                                      'True' if self.pos_webhook_enable_sales else 'False')
+        IrConfigParameter.set_param('pos_webhook_notify.enable_crm',
+                                     'True' if self.pos_webhook_enable_crm else 'False')

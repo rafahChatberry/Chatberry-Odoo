@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_chatberry_crm_stage_automation_list" model="ir.ui.view">
+    <field name="name">chatberry.crm.stage.automation.list</field>
+    <field name="model">chatberry.crm.stage.automation</field>
+    <field name="arch" type="xml">
+      <list>
+        <field name="sequence" widget="handle"/>
+        <field name="name"/>
+        <field name="from_stage_ids" widget="many2many_tags"/>
+        <field name="to_stage_id"/>
+        <field name="trigger_on_create"/>
+        <field name="team_id"/>
+        <field name="company_id"/>
+        <field name="template_id"/>
+        <field name="recipient_strategy"/>
+        <field name="duplicate_policy"/>
+        <field name="active" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_chatberry_crm_stage_automation_form" model="ir.ui.view">
+    <field name="name">chatberry.crm.stage.automation.form</field>
+    <field name="model">chatberry.crm.stage.automation</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_open_template_mapping"
+                  type="object"
+                  string="Open Template Mapping"
+                  class="oe_highlight"
+                  invisible="not template_id"/>
+        </header>
+        <sheet>
+          <div class="oe_button_box" name="button_box">
+            <button name="action_open_logs" type="object" class="oe_stat_button" icon="fa-whatsapp">
+              <field name="log_count" widget="statinfo" string="Logs"/>
+            </button>
+          </div>
+          <div class="oe_title">
+            <label for="name"/>
+            <h1><field name="name"/></h1>
+          </div>
+          <group>
+            <group string="Conditions">
+              <field name="active" widget="boolean_toggle"/>
+              <field name="sequence"/>
+              <field name="from_stage_ids" widget="many2many_tags"/>
+              <field name="to_stage_id"/>
+              <field name="trigger_on_create"/>
+              <field name="team_id"/>
+              <field name="company_id"/>
+            </group>
+            <group string="Message">
+              <field name="template_id"/>
+              <field name="recipient_strategy"/>
+              <field name="duplicate_policy"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_chatberry_crm_stage_automation_search" model="ir.ui.view">
+    <field name="name">chatberry.crm.stage.automation.search</field>
+    <field name="model">chatberry.crm.stage.automation</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="to_stage_id"/>
+        <field name="team_id"/>
+        <field name="template_id"/>
+        <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+        <filter name="inactive" string="Inactive" domain="[('active', '=', False)]"/>
+        <group expand="0" string="Group By">
+          <filter name="group_stage" string="Stage" context="{'group_by': 'to_stage_id'}"/>
+          <filter name="group_team" string="Sales Team" context="{'group_by': 'team_id'}"/>
+          <filter name="group_template" string="Template" context="{'group_by': 'template_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_chatberry_crm_stage_automation" model="ir.actions.act_window">
+    <field name="name">CRM Automations</field>
+    <field name="res_model">chatberry.crm.stage.automation</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_chatberry_crm_stage_automation_search"/>
+  </record>
+
+  <menuitem id="menu_chatberry_crm_stage_automation"
+            name="CRM Automations"
+            parent="menu_chatberry_root"
+            action="action_chatberry_crm_stage_automation"
+            sequence="20"
+            groups="base.group_system"/>
+
+  <menuitem id="menu_crm_chatberry_root"
+            name="Chatberry WhatsApp"
+            parent="crm.crm_menu_config"
+            sequence="50"
+            groups="base.group_system"/>
+
+  <menuitem id="menu_crm_chatberry_stage_automation"
+            name="Stage Automations"
+            parent="menu_crm_chatberry_root"
+            action="action_chatberry_crm_stage_automation"
+            sequence="10"
+            groups="base.group_system"/>
+
+  <menuitem id="menu_crm_chatberry_whatsapp_template"
+            name="WhatsApp Templates"
+            parent="menu_crm_chatberry_root"
+            action="action_chatberry_whatsapp_template"
+            sequence="20"
+            groups="base.group_system"/>
+
+  <record id="view_chatberry_whatsapp_message_log_list" model="ir.ui.view">
+    <field name="name">chatberry.whatsapp.message.log.list</field>
+    <field name="model">chatberry.whatsapp.message.log</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0">
+        <field name="create_date"/>
+        <field name="status" widget="badge"/>
+        <field name="lead_id"/>
+        <field name="to_stage_id"/>
+        <field name="template_id"/>
+        <field name="phone"/>
+        <field name="attempts"/>
+        <field name="max_attempts"/>
+        <field name="next_retry_date"/>
+        <field name="sent_date"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_chatberry_whatsapp_message_log_form" model="ir.ui.view">
+    <field name="name">chatberry.whatsapp.message.log.form</field>
+    <field name="model">chatberry.whatsapp.message.log</field>
+    <field name="arch" type="xml">
+      <form create="0" edit="0">
+        <header>
+          <button name="action_retry" type="object" string="Retry" invisible="status not in ('failed', 'cancelled')" groups="base.group_system"/>
+          <button name="action_cancel" type="object" string="Cancel" invisible="status not in ('queued', 'failed')" groups="base.group_system"/>
+          <button name="action_force_resend" type="object" string="Force Resend" invisible="status not in ('sent', 'failed', 'skipped')" groups="base.group_system"/>
+          <field name="status" widget="statusbar" statusbar_visible="queued,sending,sent,failed,skipped,cancelled"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="lead_id"/>
+              <field name="automation_id"/>
+              <field name="template_id"/>
+              <field name="phone"/>
+            </group>
+            <group>
+              <field name="from_stage_id"/>
+              <field name="to_stage_id"/>
+              <field name="attempts"/>
+              <field name="max_attempts"/>
+              <field name="next_retry_date"/>
+              <field name="sent_date"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Payload">
+              <field name="payload_json" nolabel="1"/>
+            </page>
+            <page string="Response">
+              <field name="response_text" nolabel="1"/>
+            </page>
+            <page string="Error">
+              <field name="error_message" nolabel="1"/>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_chatberry_whatsapp_message_log_search" model="ir.ui.view">
+    <field name="name">chatberry.whatsapp.message.log.search</field>
+    <field name="model">chatberry.whatsapp.message.log</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="lead_id"/>
+        <field name="automation_id"/>
+        <field name="template_id"/>
+        <field name="to_stage_id"/>
+        <filter name="queued" string="Queued" domain="[('status', '=', 'queued')]"/>
+        <filter name="sent" string="Sent" domain="[('status', '=', 'sent')]"/>
+        <filter name="failed" string="Failed" domain="[('status', '=', 'failed')]"/>
+        <filter name="skipped" string="Skipped" domain="[('status', '=', 'skipped')]"/>
+        <group expand="0" string="Group By">
+          <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
+          <filter name="group_stage" string="Stage" context="{'group_by': 'to_stage_id'}"/>
+          <filter name="group_template" string="Template" context="{'group_by': 'template_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_chatberry_whatsapp_message_log" model="ir.actions.act_window">
+    <field name="name">WhatsApp Logs</field>
+    <field name="res_model">chatberry.whatsapp.message.log</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_chatberry_whatsapp_message_log_search"/>
+  </record>
+
+  <menuitem id="menu_chatberry_whatsapp_message_log"
+            name="WhatsApp Logs"
+            parent="menu_chatberry_root"
+            action="action_chatberry_whatsapp_message_log"
+            sequence="30"
+            groups="base.group_system"/>
+
+  <menuitem id="menu_crm_chatberry_whatsapp_message_log"
+            name="WhatsApp Logs"
+            parent="menu_crm_chatberry_root"
+            action="action_chatberry_whatsapp_message_log"
+            sequence="30"
+            groups="base.group_system"/>
+
+  <record id="crm_lead_view_form_chatberry_whatsapp" model="ir.ui.view">
+    <field name="name">crm.lead.form.chatberry.whatsapp</field>
+    <field name="model">crm.lead</field>
+    <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//div[@name='button_box']" position="inside">
+        <button name="action_open_chatberry_whatsapp_logs" type="object" class="oe_stat_button" icon="fa-whatsapp">
+          <field name="chatberry_whatsapp_log_count" widget="statinfo" string="WhatsApp"/>
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="crm_stage_form_chatberry_whatsapp" model="ir.ui.view">
+    <field name="name">crm.stage.form.chatberry.whatsapp</field>
+    <field name="model">crm.stage</field>
+    <field name="inherit_id" ref="crm.crm_stage_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='requirements']" position="after">
+        <separator string="Chatberry WhatsApp Automations"/>
+        <field name="chatberry_automation_ids" context="{'default_to_stage_id': id}">
+          <list editable="bottom">
+            <field name="sequence" widget="handle"/>
+            <field name="name"/>
+            <field name="from_stage_ids" widget="many2many_tags"/>
+            <field name="template_id"/>
+            <field name="team_id"/>
+            <field name="trigger_on_create"/>
+            <field name="recipient_strategy"/>
+            <field name="duplicate_policy"/>
+            <field name="active"/>
+          </list>
+        </field>
+      </xpath>
+    </field>
+  </record>
+</odoo>

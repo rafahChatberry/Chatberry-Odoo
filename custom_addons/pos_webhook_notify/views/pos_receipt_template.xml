@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Custom POS Receipt Report -->
-    <report 
-        id="report_pos_receipt_custom"
-        string="POS Receipt"
-        model="pos.order" 
-        report_type="qweb-pdf"
-        name="pos_webhook_notify.pos_receipt_document"
-        file="pos_webhook_notify.pos_receipt_document"
-    />
+    <record id="report_pos_receipt_custom" model="ir.actions.report">
+        <field name="name">POS Receipt</field>
+        <field name="model">pos.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">pos_webhook_notify.pos_receipt_document</field>
+        <field name="report_file">pos_webhook_notify.pos_receipt_document</field>
+        <field name="binding_model_id" ref="point_of_sale.model_pos_order"/>
+        <field name="binding_type">report</field>
+    </record>
 
     <!-- Main Receipt Template -->
     <template id="pos_receipt_document">

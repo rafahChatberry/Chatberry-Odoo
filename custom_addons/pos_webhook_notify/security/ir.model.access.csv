@@ -2,3 +2,9 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_pos_order_webhook,access.pos.order.webhook,point_of_sale.model_pos_order,base.group_user,1,1,1,0
 access_account_move_webhook,access.account.move.webhook,account.model_account_move,base.group_user,1,1,1,0
 access_sale_order_webhook,access.sale.order.webhook,sale.model_sale_order,base.group_user,1,1,1,0
+access_chatberry_whatsapp_template_admin,access.chatberry.whatsapp.template.admin,model_chatberry_whatsapp_template,base.group_system,1,1,1,1
+access_chatberry_whatsapp_template_variable_admin,access.chatberry.whatsapp.template.variable.admin,model_chatberry_whatsapp_template_variable,base.group_system,1,1,1,1
+access_chatberry_whatsapp_template_button_admin,access.chatberry.whatsapp.template.button.admin,model_chatberry_whatsapp_template_button,base.group_system,1,1,1,1
+access_chatberry_crm_stage_automation_admin,access.chatberry.crm.stage.automation.admin,model_chatberry_crm_stage_automation,base.group_system,1,1,1,1
+access_chatberry_whatsapp_message_log_admin,access.chatberry.whatsapp.message.log.admin,model_chatberry_whatsapp_message_log,base.group_system,1,1,1,1
+access_chatberry_whatsapp_message_log_crm_user,access.chatberry.whatsapp.message.log.crm.user,model_chatberry_whatsapp_message_log,sales_team.group_sale_salesman,1,0,0,0
