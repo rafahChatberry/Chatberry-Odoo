@@ -10,6 +10,7 @@
         "security/ir.model.access.csv",
         "data/ir_config_parameter.xml",
         "data/chatberry_crm_cron.xml",
+        "data/chatberry_website_order_cron.xml",
         "views/res_config_settings_views.xml",
         "views/chatberry_whatsapp_template_views.xml",
         "views/chatberry_crm_automation_views.xml",

@@ -498,6 +498,43 @@ class SaleOrder(models.Model):
                 body_params, raw_phone, token
             )
 
+    @api.model
+    def _cron_send_pending_website_order_whatsapp(self, limit=20):
+        """Send pending website order WhatsApp notifications outside checkout requests."""
+        Param = self.env["ir.config_parameter"].sudo()
+        sales_enabled = Param.get_param("pos_webhook_notify.enable_sales", "True") == "True"
+
+        if not sales_enabled:
+            _logger.info("[WEBSITE-ORDER-CRON] Sales module is DISABLED. Skipping.")
+            return
+
+        orders = self.sudo().search([
+            ("website_id", "!=", False),
+            ("state", "in", ("sale", "done")),
+            ("whatsapp_sent_website", "=", False),
+        ], order="write_date asc, id asc", limit=limit)
+
+        if not orders:
+            _logger.info("[WEBSITE-ORDER-CRON] No pending website orders.")
+            return
+
+        _logger.info("[WEBSITE-ORDER-CRON] Processing %d pending website order(s)", len(orders))
+        orders._send_website_order_whatsapp()
+
+    def _queue_website_order_whatsapp(self):
+        """Leave website orders for the cron worker to avoid breaking checkout."""
+        website_orders = self.filtered(
+            lambda order: order.website_id
+            and order.state in ("sale", "done")
+            and not order.whatsapp_sent_website
+        )
+        if website_orders:
+            _logger.info(
+                "[WEBSITE-ORDER] Queued %d order(s) for cron WhatsApp processing: %s",
+                len(website_orders),
+                ", ".join(website_orders.mapped("name")),
+            )
+
     def action_confirm(self):
         """Override action_confirm to trigger WhatsApp sending when website order is confirmed"""
         res = super(SaleOrder, self).action_confirm()
@@ -518,12 +555,9 @@ class SaleOrder(models.Model):
         )
         
         if website_orders_to_notify:
-            _logger.info("📨 [WEBSITE-ORDER] Triggering WhatsApp for %d website order(s)", 
+            _logger.info("📨 [WEBSITE-ORDER] Queueing WhatsApp for %d website order(s)",
                         len(website_orders_to_notify))
-            # Small delay to ensure order is fully confirmed
-            import time
-            time.sleep(0.3)
-            website_orders_to_notify._send_website_order_whatsapp()
+            website_orders_to_notify._queue_website_order_whatsapp()
         
         return res
 
@@ -547,10 +581,8 @@ class SaleOrder(models.Model):
             )
             
             if website_orders_to_notify:
-                _logger.info("📨 [WEBSITE-ORDER] State change detected, triggering WhatsApp for %d order(s)", 
+                _logger.info("📨 [WEBSITE-ORDER] State change detected, queueing WhatsApp for %d order(s)",
                             len(website_orders_to_notify))
-                import time
-                time.sleep(0.3)
-                website_orders_to_notify._send_website_order_whatsapp()
+                website_orders_to_notify._queue_website_order_whatsapp()
         
         return res
