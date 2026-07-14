@@ -538,6 +538,7 @@ class SaleOrder(models.Model):
     def action_confirm(self):
         """Override action_confirm to trigger WhatsApp sending when website order is confirmed"""
         res = super(SaleOrder, self).action_confirm()
+        return res
         
         # Check if Sales module is enabled
         Param = self.env["ir.config_parameter"].sudo()
@@ -564,6 +565,7 @@ class SaleOrder(models.Model):
     def write(self, vals):
         """Override write to catch state changes for website orders"""
         res = super(SaleOrder, self).write(vals)
+        return res
         
         # Check if Sales module is enabled
         Param = self.env["ir.config_parameter"].sudo()
