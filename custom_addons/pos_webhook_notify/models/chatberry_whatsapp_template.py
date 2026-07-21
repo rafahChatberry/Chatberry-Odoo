@@ -27,6 +27,12 @@ class ChatberryWhatsappTemplate(models.Model):
     ], default="none", required=True)
     header_media_url = fields.Char()
     header_attachment_id = fields.Many2one("ir.attachment", string="Header Attachment")
+    header_field_id = fields.Many2one(
+        "ir.model.fields",
+        string="Header Lead Field",
+        domain=[("model", "=", "crm.lead"), ("ttype", "not in", ["binary", "one2many", "many2many"])],
+        help="Select a CRM Lead field. The technical field path will be filled automatically.",
+    )
     header_field_path = fields.Char(help="Example: partner_id.image_url or x_header_document_url")
 
     variable_ids = fields.One2many("chatberry.whatsapp.template.variable", "template_id", string="Variables")
@@ -38,6 +44,27 @@ class ChatberryWhatsappTemplate(models.Model):
          "unique(whatsapp_template_name, language_code, company_id)",
          "The WhatsApp template name must be unique per language and company."),
     ]
+
+    @api.onchange("header_field_id")
+    def _onchange_header_field_id(self):
+        for template in self:
+            if template.header_field_id:
+                template.header_field_path = template.header_field_id.name
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._fill_header_field_path(vals)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        self._fill_header_field_path(vals)
+        return super().write(vals)
+
+    def _fill_header_field_path(self, vals):
+        field_id = vals.get("header_field_id")
+        if field_id and not vals.get("header_field_path"):
+            vals["header_field_path"] = self.env["ir.model.fields"].sudo().browse(field_id).name
 
     @api.constrains("header_media_type", "header_media_source", "header_media_url", "header_attachment_id", "header_field_path")
     def _check_header_media_config(self):
@@ -72,10 +99,37 @@ class ChatberryWhatsappTemplateVariable(models.Model):
         ("field_path", "Lead Field Path"),
         ("static", "Static Text"),
     ], default="field_path", required=True)
+    crm_lead_field_id = fields.Many2one(
+        "ir.model.fields",
+        string="Lead Field",
+        domain=[("model", "=", "crm.lead"), ("ttype", "not in", ["binary", "one2many", "many2many"])],
+        help="Select a CRM Lead field. The technical field path will be filled automatically.",
+    )
     field_path = fields.Char(help="Example: partner_id.name, contact_name, stage_id.name")
     static_value = fields.Char()
     fallback_value = fields.Char()
     required = fields.Boolean(default=False)
+
+    @api.onchange("crm_lead_field_id")
+    def _onchange_crm_lead_field_id(self):
+        for variable in self:
+            if variable.crm_lead_field_id:
+                variable.field_path = variable.crm_lead_field_id.name
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._fill_field_path(vals)
+        return super().create(vals_list)
+
+    def write(self, vals):
+        self._fill_field_path(vals)
+        return super().write(vals)
+
+    def _fill_field_path(self, vals):
+        field_id = vals.get("crm_lead_field_id")
+        if field_id and not vals.get("field_path"):
+            vals["field_path"] = self.env["ir.model.fields"].sudo().browse(field_id).name
 
     @api.constrains("component_type", "button_id")
     def _check_button_component(self):

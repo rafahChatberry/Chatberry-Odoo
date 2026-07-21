@@ -48,6 +48,7 @@
               <group>
                 <field name="header_media_url"/>
                 <field name="header_attachment_id"/>
+                <field name="header_field_id" options="{'no_create': True, 'no_open': True}"/>
                 <field name="header_field_path"/>
               </group>
             </page>
@@ -59,7 +60,8 @@
                   <field name="component_type"/>
                   <field name="button_id"/>
                   <field name="value_type"/>
-                  <field name="field_path"/>
+                  <field name="crm_lead_field_id" options="{'no_create': True, 'no_open': True}"/>
+                  <field name="field_path" optional="hide"/>
                   <field name="static_value"/>
                   <field name="fallback_value"/>
                   <field name="required"/>
