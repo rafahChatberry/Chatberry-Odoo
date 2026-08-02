@@ -124,10 +124,12 @@
       <list create="0" edit="0">
         <field name="create_date"/>
         <field name="status" widget="badge"/>
+        <field name="reason_code"/>
         <field name="lead_id"/>
         <field name="to_stage_id"/>
         <field name="template_id"/>
         <field name="phone"/>
+        <field name="error_message" optional="hide"/>
         <field name="attempts"/>
         <field name="max_attempts"/>
         <field name="next_retry_date"/>
@@ -153,6 +155,7 @@
               <field name="lead_id"/>
               <field name="automation_id"/>
               <field name="template_id"/>
+              <field name="reason_code"/>
               <field name="phone"/>
             </group>
             <group>
@@ -193,8 +196,16 @@
         <filter name="sent" string="Sent" domain="[('status', '=', 'sent')]"/>
         <filter name="failed" string="Failed" domain="[('status', '=', 'failed')]"/>
         <filter name="skipped" string="Skipped" domain="[('status', '=', 'skipped')]"/>
+        <separator/>
+        <filter name="no_automation" string="No Automation" domain="[('reason_code', '=', 'no_automation')]"/>
+        <filter name="stage_from_mismatch" string="Stage From Mismatch" domain="[('reason_code', '=', 'stage_from_mismatch')]"/>
+        <filter name="no_phone" string="No Phone" domain="[('reason_code', '=', 'no_phone')]"/>
+        <filter name="duplicate" string="Duplicate" domain="[('reason_code', '=', 'duplicate')]"/>
+        <filter name="api_config_error" string="API Config" domain="[('reason_code', '=', 'api_config_error')]"/>
+        <filter name="mapping_error" string="Mapping Error" domain="[('reason_code', '=', 'mapping_error')]"/>
         <group expand="0" string="Group By">
           <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
+          <filter name="group_reason" string="Reason" context="{'group_by': 'reason_code'}"/>
           <filter name="group_stage" string="Stage" context="{'group_by': 'to_stage_id'}"/>
           <filter name="group_template" string="Template" context="{'group_by': 'template_id'}"/>
         </group>

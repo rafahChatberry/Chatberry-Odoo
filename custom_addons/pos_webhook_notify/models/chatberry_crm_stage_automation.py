@@ -1,4 +1,8 @@
+import logging
+
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class ChatberryCrmStageAutomation(models.Model):
@@ -100,7 +104,7 @@ class ChatberryCrmStageAutomation(models.Model):
 
     @api.model
     def _queue_for_stage_changes(self, leads, old_stage_by_id):
-        if not leads or not self._get_enabled():
+        if not leads:
             return
 
         Log = self.env["chatberry.whatsapp.message.log"].sudo()
@@ -111,34 +115,177 @@ class ChatberryCrmStageAutomation(models.Model):
             if not new_stage or old_stage == new_stage:
                 continue
 
-            for automation in self._matching_automations(lead, old_stage, new_stage):
-                phone = automation._resolve_recipient_phone(lead)
-                dedupe_key = automation._make_dedupe_key(lead, new_stage)
-                if automation.duplicate_policy == "once_per_stage" and Log.search_count([("dedupe_key", "=", dedupe_key)]):
-                    Log.create({
-                        "status": "skipped",
+            _logger.info(
+                "[CHATBERRY:CRM:STAGE] Processing stage change lead_id=%s old_stage_id=%s new_stage_id=%s",
+                lead.id,
+                old_stage.id if old_stage else False,
+                new_stage.id,
+            )
+            try:
+                self._queue_for_single_stage_change(lead, old_stage, new_stage, Log, max_attempts)
+            except Exception:
+                _logger.exception(
+                    "[CHATBERRY:CRM:STAGE] Stage automation failed before a WhatsApp log could be completed. "
+                    "This can indicate database/schema/access/constraint issues. lead_id=%s old_stage_id=%s new_stage_id=%s",
+                    lead.id,
+                    old_stage.id if old_stage else False,
+                    new_stage.id,
+                )
+
+    @api.model
+    def _queue_for_single_stage_change(self, lead, old_stage, new_stage, Log, max_attempts):
+        if not self._get_enabled():
+            self._create_diagnostic_log(
+                lead,
+                old_stage,
+                new_stage,
+                "automation_disabled",
+                "CRM WhatsApp Automation is disabled in Chatberry settings.",
+            )
+            return
+
+        matching_automations = self.env["chatberry.crm.stage.automation"]
+        candidate_automations = self.sudo().with_context(active_test=False).search([("to_stage_id", "=", new_stage.id)])
+        if not candidate_automations:
+            self._create_diagnostic_log(
+                lead,
+                old_stage,
+                new_stage,
+                "no_automation",
+                "No CRM WhatsApp automation is configured for target stage '%s'." % new_stage.display_name,
+            )
+            return
+
+        for automation in candidate_automations:
+            reason_code, message = automation._get_skip_reason(lead, old_stage)
+            if reason_code:
+                automation._create_diagnostic_log(lead, old_stage, new_stage, reason_code, message)
+            else:
+                matching_automations |= automation
+
+        for automation in matching_automations:
+            phone = automation._resolve_recipient_phone(lead)
+            dedupe_key = automation._make_dedupe_key(lead, new_stage)
+            if automation.duplicate_policy == "once_per_stage" and Log.search_count([("dedupe_key", "=", dedupe_key)]):
+                automation._create_diagnostic_log(
+                    lead,
+                    old_stage,
+                    new_stage,
+                    "duplicate",
+                    "Duplicate prevented for this lead, automation, and target stage.",
+                    phone=phone,
+                )
+                continue
+
+            try:
+                with self.env.cr.savepoint():
+                    log = Log.create({
+                        "status": "queued",
                         "lead_id": lead.id,
                         "automation_id": automation.id,
                         "template_id": automation.template_id.id,
                         "from_stage_id": old_stage.id if old_stage else False,
                         "to_stage_id": new_stage.id,
                         "phone": phone,
-                        "error_message": "Duplicate prevented for this lead, automation, and target stage.",
+                        "dedupe_key": dedupe_key,
+                        "max_attempts": max_attempts,
                     })
-                    continue
+            except Exception:
+                _logger.exception(
+                    "[CHATBERRY:CRM:STAGE] Failed to create WhatsApp queue log. "
+                    "This can indicate database/schema/access/constraint issues. lead_id=%s automation_id=%s "
+                    "template_id=%s from_stage_id=%s to_stage_id=%s",
+                    lead.id,
+                    automation.id,
+                    automation.template_id.id,
+                    old_stage.id if old_stage else False,
+                    new_stage.id,
+                )
+                continue
 
-                log = Log.create({
-                    "status": "queued",
-                    "lead_id": lead.id,
-                    "automation_id": automation.id,
-                    "template_id": automation.template_id.id,
+            try:
+                with self.env.cr.savepoint():
+                    log._process_one()
+            except Exception:
+                _logger.exception(
+                    "[CHATBERRY:CRM:STAGE] Failed while processing WhatsApp log. "
+                    "log_id=%s lead_id=%s automation_id=%s",
+                    log.id,
+                    lead.id,
+                    automation.id,
+                )
+
+    def _get_skip_reason(self, lead, old_stage):
+        self.ensure_one()
+        if not self.active:
+            return "inactive_automation", "Automation rule '%s' is inactive." % (self.display_name or self.id)
+        if not self.template_id:
+            return "missing_reference", "Automation has no WhatsApp template configured."
+        if not self.template_id.active:
+            return "inactive_template", "WhatsApp template '%s' is inactive." % self.template_id.display_name
+        if lead.company_id and self.company_id and self.company_id != lead.company_id:
+            return (
+                "company_mismatch",
+                "Automation company '%s' does not match lead company '%s'."
+                % (self.company_id.display_name, lead.company_id.display_name),
+            )
+        if lead.team_id and self.team_id and self.team_id != lead.team_id:
+            return (
+                "team_mismatch",
+                "Automation team '%s' does not match lead team '%s'."
+                % (self.team_id.display_name, lead.team_id.display_name),
+            )
+        if not old_stage:
+            if not self.trigger_on_create:
+                return "creation_disabled", "Lead was created in this stage, but Send On Creation is disabled."
+            if self.from_stage_ids:
+                return "stage_from_mismatch", "Creation events only match automations with empty Stage From."
+            return False, False
+        if self.from_stage_ids and old_stage not in self.from_stage_ids:
+            return (
+                "stage_from_mismatch",
+                "Lead moved from '%s', but this automation only allows Stage From: %s."
+                % (old_stage.display_name, ", ".join(self.from_stage_ids.mapped("display_name"))),
+            )
+        return False, False
+
+    def _create_diagnostic_log(self, lead, old_stage, new_stage, reason_code, message, phone=False):
+        self.ensure_one() if self else None
+        automation_id = self.id if self else False
+        _logger.info(
+            "[CHATBERRY:CRM:DIAGNOSTIC] Skipping WhatsApp send lead_id=%s automation_id=%s "
+            "from_stage_id=%s to_stage_id=%s reason=%s message=%s",
+            lead.id if lead else False,
+            automation_id,
+            old_stage.id if old_stage else False,
+            new_stage.id if new_stage else False,
+            reason_code or "unknown",
+            message,
+        )
+        try:
+            with self.env.cr.savepoint():
+                self.env["chatberry.whatsapp.message.log"].sudo().create({
+                    "status": "skipped",
+                    "reason_code": reason_code or "unknown",
+                    "lead_id": lead.id if lead else False,
+                    "automation_id": automation_id,
+                    "template_id": self.template_id.id if self and self.template_id else False,
                     "from_stage_id": old_stage.id if old_stage else False,
-                    "to_stage_id": new_stage.id,
-                    "phone": phone,
-                    "dedupe_key": dedupe_key,
-                    "max_attempts": max_attempts,
+                    "to_stage_id": new_stage.id if new_stage else False,
+                    "phone": phone or False,
+                    "error_message": message[:2000] if message else "Skipped before sending.",
                 })
-                log._process_one()
+        except Exception:
+            _logger.exception(
+                "[CHATBERRY:CRM:DIAGNOSTIC] Failed to create skipped WhatsApp log. "
+                "This can indicate database/schema/access/constraint issues. lead_id=%s automation_id=%s "
+                "from_stage_id=%s to_stage_id=%s reason=%s",
+                lead.id if lead else False,
+                automation_id,
+                old_stage.id if old_stage else False,
+                new_stage.id if new_stage else False,
+                reason_code or "unknown",
+            )
 
     @api.model
     def _matching_automations(self, lead, old_stage, new_stage):
