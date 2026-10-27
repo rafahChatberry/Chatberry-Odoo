@@ -10,6 +10,7 @@
         <field name="from_stage_ids" widget="many2many_tags"/>
         <field name="to_stage_id"/>
         <field name="trigger_on_create"/>
+        <field name="trigger_on_conversion"/>
         <field name="team_id"/>
         <field name="company_id"/>
         <field name="template_id"/>
@@ -49,6 +50,7 @@
               <field name="from_stage_ids" widget="many2many_tags"/>
               <field name="to_stage_id"/>
               <field name="trigger_on_create"/>
+              <field name="trigger_on_conversion"/>
               <field name="team_id"/>
               <field name="company_id"/>
             </group>
@@ -262,6 +264,7 @@
             <field name="template_id"/>
             <field name="team_id"/>
             <field name="trigger_on_create"/>
+            <field name="trigger_on_conversion"/>
             <field name="recipient_strategy"/>
             <field name="duplicate_policy"/>
             <field name="active"/>

@@ -26,8 +26,13 @@ class ChatberryCrmStageAutomation(models.Model):
     )
     trigger_on_create = fields.Boolean(
         string="Send On Creation",
-        default=True,
-        help="Send when a new CRM lead/opportunity is created directly in Stage To.",
+        default=False,
+        help="Legacy option. CRM messages are not sent on record creation; use Send On Lead Conversion instead.",
+    )
+    trigger_on_conversion = fields.Boolean(
+        string="Send On Lead Conversion",
+        default=False,
+        help="Send when a lead is converted into an opportunity in Stage To. Stage From must be empty.",
     )
     template_id = fields.Many2one("chatberry.whatsapp.template", required=True, ondelete="restrict")
     recipient_strategy = fields.Selection([
@@ -122,7 +127,9 @@ class ChatberryCrmStageAutomation(models.Model):
                 new_stage.id,
             )
             try:
-                self._queue_for_single_stage_change(lead, old_stage, new_stage, Log, max_attempts)
+                self._queue_for_single_stage_change(
+                    lead, old_stage, new_stage, Log, max_attempts, event_type="stage_change"
+                )
             except Exception:
                 _logger.exception(
                     "[CHATBERRY:CRM:STAGE] Stage automation failed before a WhatsApp log could be completed. "
@@ -133,7 +140,35 @@ class ChatberryCrmStageAutomation(models.Model):
                 )
 
     @api.model
-    def _queue_for_single_stage_change(self, lead, old_stage, new_stage, Log, max_attempts):
+    def _queue_for_conversions(self, leads):
+        if not leads:
+            return
+
+        Log = self.env["chatberry.whatsapp.message.log"].sudo()
+        max_attempts = self._get_default_max_attempts()
+        for lead in leads:
+            if not lead.stage_id:
+                continue
+            _logger.info(
+                "[CHATBERRY:CRM:CONVERSION] Processing lead conversion lead_id=%s stage_id=%s",
+                lead.id,
+                lead.stage_id.id,
+            )
+            try:
+                self._queue_for_single_stage_change(
+                    lead, False, lead.stage_id, Log, max_attempts, event_type="conversion"
+                )
+            except Exception:
+                _logger.exception(
+                    "[CHATBERRY:CRM:CONVERSION] Conversion automation failed. lead_id=%s stage_id=%s",
+                    lead.id,
+                    lead.stage_id.id,
+                )
+
+    @api.model
+    def _queue_for_single_stage_change(
+        self, lead, old_stage, new_stage, Log, max_attempts, event_type="stage_change"
+    ):
         if not self._get_enabled():
             self._create_diagnostic_log(
                 lead,
@@ -157,7 +192,7 @@ class ChatberryCrmStageAutomation(models.Model):
             return
 
         for automation in candidate_automations:
-            reason_code, message = automation._get_skip_reason(lead, old_stage)
+            reason_code, message = automation._get_skip_reason(lead, old_stage, event_type)
             if reason_code:
                 automation._create_diagnostic_log(lead, old_stage, new_stage, reason_code, message)
             else:
@@ -215,7 +250,7 @@ class ChatberryCrmStageAutomation(models.Model):
                     automation.id,
                 )
 
-    def _get_skip_reason(self, lead, old_stage):
+    def _get_skip_reason(self, lead, old_stage, event_type="stage_change"):
         self.ensure_one()
         if not self.active:
             return "inactive_automation", "Automation rule '%s' is inactive." % (self.display_name or self.id)
@@ -236,10 +271,12 @@ class ChatberryCrmStageAutomation(models.Model):
                 % (self.team_id.display_name, lead.team_id.display_name),
             )
         if not old_stage:
-            if not self.trigger_on_create:
-                return "creation_disabled", "Lead was created in this stage, but Send On Creation is disabled."
             if self.from_stage_ids:
-                return "stage_from_mismatch", "Creation events only match automations with empty Stage From."
+                return "stage_from_mismatch", "Creation/conversion events only match automations with empty Stage From."
+            if event_type == "conversion" and not self.trigger_on_conversion:
+                return "conversion_disabled", "Lead was converted in this stage, but Send On Lead Conversion is disabled."
+            if event_type != "conversion" and not self.trigger_on_create:
+                return "creation_disabled", "Creation-triggered CRM sends are disabled."
             return False, False
         if self.from_stage_ids and old_stage not in self.from_stage_ids:
             return (

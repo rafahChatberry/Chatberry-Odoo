@@ -61,18 +61,34 @@ class CrmLead(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         leads = super().create(vals_list)
-        if not self.env.context.get("chatberry_skip_crm_automation"):
-            old_stage_by_id = {lead.id: self.env["crm.stage"] for lead in leads}
-            self.env["chatberry.crm.stage.automation"].sudo()._queue_for_stage_changes(leads, old_stage_by_id)
         return leads
 
     def write(self, vals):
         old_stage_by_id = {}
-        if "stage_id" in vals and not self.env.context.get("chatberry_skip_crm_automation"):
+        old_type_by_id = {}
+        should_track = not self.env.context.get("chatberry_skip_crm_automation")
+        if should_track and "stage_id" in vals:
             old_stage_by_id = {lead.id: lead.stage_id for lead in self}
+        if should_track and "type" in vals:
+            old_type_by_id = {lead.id: lead.type for lead in self}
 
         result = super().write(vals)
 
         if old_stage_by_id:
-            self.env["chatberry.crm.stage.automation"].sudo()._queue_for_stage_changes(self, old_stage_by_id)
+            converted_ids = {
+                lead.id for lead in self
+                if old_type_by_id.get(lead.id) == "lead" and lead.type == "opportunity"
+            }
+            stage_change_leads = self.filtered(lambda lead: lead.id not in converted_ids)
+            if stage_change_leads:
+                self.env["chatberry.crm.stage.automation"].sudo()._queue_for_stage_changes(
+                    stage_change_leads,
+                    {lead.id: old_stage_by_id[lead.id] for lead in stage_change_leads.ids},
+                )
+        if old_type_by_id:
+            converted_leads = self.filtered(
+                lambda lead: old_type_by_id.get(lead.id) == "lead" and lead.type == "opportunity"
+            )
+            if converted_leads:
+                self.env["chatberry.crm.stage.automation"].sudo()._queue_for_conversions(converted_leads)
         return result
