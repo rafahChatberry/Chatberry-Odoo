@@ -12,7 +12,8 @@ The module supports:
 - WhatsApp template variable mapping.
 - Stage From -> Stage To automation rules.
 - Sending immediately when a CRM lead/opportunity changes stage.
-- Sending when a CRM lead/opportunity is created directly in a configured target stage.
+- Sending when a Lead is converted to an Opportunity in its current target stage.
+- No WhatsApp message is sent when a Lead is first created.
 - WhatsApp logs, retry, cancel, and force resend actions.
 
 The module is built for Odoo 18.
@@ -148,7 +149,7 @@ Retry Delay (Minutes): 15
 
 Save the settings.
 
-CRM automation sends immediately when a matching stage transition happens. The queue and cron remain available for retries.
+CRM automation sends immediately after a matching stage transition or Lead-to-Opportunity conversion. Creating a Lead by itself never sends a message. The queue and cron remain available for retries.
 
 ## 6. Create a WhatsApp Template
 
@@ -350,18 +351,22 @@ Fill:
 Active: Enabled
 Stage From: Optional source stage
 Stage To: Target stage
-Send On Creation: Enabled or Disabled
+Send On Creation: Disabled
+Send On Lead Conversion: Enabled or Disabled
 Template: Select WhatsApp template
 Recipient Strategy: First Available
 Duplicate Policy: Once Per Lead and Stage
 ```
+
+`Send On Creation` is a legacy setting and must remain disabled for this workflow. A new Lead does not trigger a message. Use `Send On Lead Conversion` to send when the user clicks **Convert to Opportunity**. For conversion rules, leave `Stage From` empty because the conversion event has no source-stage transition.
 
 ### Example 1: Send when moving from New to Qualified
 
 ```text
 Stage From: New
 Stage To: Qualified
-Send On Creation: Disabled or Enabled
+Send On Creation: Disabled
+Send On Lead Conversion: Disabled
 Template: copy_2 - Qualified Invoice
 Recipient Strategy: First Available
 Duplicate Policy: Once Per Lead and Stage
@@ -374,30 +379,37 @@ This sends only when a lead moves from `New` to `Qualified`.
 ```text
 Stage From: Empty
 Stage To: Qualified
-Send On Creation: Enabled
+Send On Creation: Disabled
+Send On Lead Conversion: Disabled
 Template: copy_2 - Qualified Invoice
 Recipient Strategy: First Available
 Duplicate Policy: Once Per Lead and Stage
 ```
 
-This sends when a lead moves from any stage to `Qualified`.
+This sends when an opportunity moves from any stage to `Qualified`. It does not send on Lead creation or conversion.
 
-It also sends when a new lead is created directly in `Qualified`.
-
-### Example 3: Send when a ticket is added to the first stage
+### Example 3: Send when a new Lead is converted in the first stage (`New`)
 
 Create an automation:
 
 ```text
 Stage From: Empty
-Stage To: First Stage
-Send On Creation: Enabled
+Stage To: New
+Send On Creation: Disabled
+Send On Lead Conversion: Enabled
 Template: Select template
 Recipient Strategy: First Available
 Duplicate Policy: Once Per Lead and Stage
 ```
 
-When a new lead/opportunity is created directly in that first stage, the template is sent.
+Expected behavior:
+
+1. Creating a Lead in `New` does not send a message.
+2. Clicking **Convert to Opportunity** while the record is in `New` triggers the template linked to this rule.
+3. The conversion rule must be active, its template must be active, and CRM Stage Automation must be enabled in Settings.
+4. The conversion is detected even if Odoo keeps the record in the same stage during conversion.
+
+For the specific setup where only conversion should send, do not enable `Send On Creation` and leave `Stage From` empty.
 
 ## 11. Recipient Phone Rules
 
@@ -434,27 +446,54 @@ Use international format, for example:
 +965XXXXXXXX
 ```
 
-## 12. Test the Automation
+## 12. Deploy and Test the Conversion Workflow
 
-1. Open CRM:
+The conversion trigger requires the updated Chatberry code and an Odoo module upgrade. Do not try to enable `Send On Lead Conversion` before deploying and upgrading the module; the field will not exist in the older database schema.
+
+Before upgrading a production instance:
+
+1. Back up the Odoo database and filestore.
+2. Deploy the updated `pos_webhook_notify` module files to the production addons path.
+3. Restart Odoo and upgrade the module:
+
+```powershell
+docker compose exec -T odoo odoo -d YOUR_DATABASE -u pos_webhook_notify --stop-after-init --no-http --db_host=db --db_user=odoo --db_password=odoo
+docker compose restart odoo
+```
+
+Replace `YOUR_DATABASE` and the database connection arguments with the values used by your deployment. For managed hosting, use its supported Apps/module upgrade procedure instead of this Docker command.
+
+Configure the rule under:
+
+```text
+CRM -> Configuration -> Chatberry WhatsApp -> Stage Automations
+```
+
+For the `New` stage rule, set:
+
+```text
+Stage From: Empty
+Stage To: New
+Send On Creation: Disabled
+Send On Lead Conversion: Enabled
+Template: Your approved template for New
+Active: Enabled
+```
+
+Then test:
+
+1. Create a Lead in `New` with a valid phone number. Confirm no WhatsApp message is sent at creation.
+2. Open the Lead and click **Convert to Opportunity**.
+3. Open **WhatsApp Logs** and confirm a log was created for the `New` automation and the expected template.
+4. Confirm the status is `Sent`; if it is `Failed` or `Skipped`, inspect the log's `Error`, `Response`, and `Payload` tabs.
+
+Open CRM to create the test Lead:
 
 ```text
 CRM -> Sales -> My Pipeline
 ```
 
-2. Create or open an opportunity.
-
-3. Make sure it has:
-
-```text
-Contact Name
-Mobile or Phone
-Website, if used as payment link
-```
-
-4. Move it to the configured `Stage To`.
-
-5. Check logs:
+Check logs:
 
 ```text
 CRM -> Configuration -> Chatberry WhatsApp -> WhatsApp Logs
@@ -469,7 +508,7 @@ Skipped
 Queued
 ```
 
-The message is attempted immediately on stage change or creation.
+The conversion-triggered message is attempted immediately after conversion. Ordinary stage-change automations still run when an opportunity moves to a different target stage.
 
 ## 13. WhatsApp Logs
 
@@ -582,18 +621,23 @@ Response
 Error
 ```
 
-### Template does not send on lead creation
+### Template was sent on Lead creation
+
+The updated workflow does not send on Lead creation. Check that the production server has the updated module code and that the module was upgraded. Also disable `Send On Creation` on the rule. If the old module version is still running, it may retain the previous creation-trigger behavior.
+
+### Template does not send on Lead conversion
 
 Check the automation:
 
 ```text
-Send On Creation: Enabled
+Send On Creation: Disabled
+Send On Lead Conversion: Enabled
 Stage From: Empty
-Stage To: The stage where the lead is created
+Stage To: The Lead's current stage at conversion (for example, New)
 Active: Enabled
 ```
 
-Creation events only match automations where `Stage From` is empty.
+Also confirm the code has been deployed and `pos_webhook_notify` upgraded after deployment. Conversion is detected on the Lead-to-Opportunity type change, even if the stage remains `New`.
 
 ### Template does not send on stage move
 
